@@ -1,0 +1,71 @@
+/*
+  프로젝트: 웹 페이지 출력
+  기능: ESP32를 WiFi에 연결하고, "Hello World"라는 웹 페이지 표시
+*/
+
+#include <WiFi.h>
+#include "esp_camera.h"
+#include "esp_http_server.h"
+
+// WiFi 이름과 비밀번호 설정
+const char *ssid = "your_SSID";          // 연결할 WiFi 이름
+const char *password = "your_PASSWORD";  // WiFi 비밀번호
+
+httpd_handle_t camera_httpd = NULL;  // HTTP 서버 핸들 (서버 실행 관리)
+
+// 간단한 HTML 코드 (웹에 출력될 내용)
+static const char PROGMEM INDEX_HTML[] = R"rawliteral(
+<html>
+  <head>
+  <body>
+    <h1>Hello World</h1>  <!-- 본문에 표시될 문구 -->
+  </body>
+</html>
+)rawliteral";
+
+// 콜백 함수: "/" (루트 주소) 요청 처리
+static esp_err_t index_handler(httpd_req_t *req) {
+  httpd_resp_set_type(req, "text/html");  // 응답 형식을 HTML로 지정
+  return httpd_resp_send(req, (const char *)INDEX_HTML, strlen(INDEX_HTML));  
+  // "Hello World" HTML 응답 전송
+}
+
+// HTTP 서버 시작 함수
+void startCameraServer() {
+  httpd_config_t config = HTTPD_DEFAULT_CONFIG();  
+  config.server_port = 80;  // 서버 포트를 80번으로 지정 (기본 웹 포트)
+
+  // "/" 경로 요청에 대한 처리기 등록
+  httpd_uri_t index_uri = {
+    .uri = "/",               // 경로 "/"
+    .method = HTTP_GET,       // GET 요청 처리
+    .handler = index_handler, // 처리할 콜백 함수
+    .user_ctx = NULL          
+  };
+
+  // 서버 시작 및 요청 처리기 등록
+  if (httpd_start(&camera_httpd, &config) == ESP_OK) {
+    httpd_register_uri_handler(camera_httpd, &index_uri);
+  }
+}
+
+void setup() {
+  Serial.begin(115200);  // 시리얼 통신 시작
+
+  // WiFi 연결 시도
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {  // 연결이 완료될 때까지 대기
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");  // 
+  Serial.println("WiFi connected");  
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());   // 연결된 IP 출력
+   // HTTP 서버 시작
+  startCameraServer();
+}
+
+void loop() {
+}
